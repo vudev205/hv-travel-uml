@@ -1,0 +1,26 @@
+@startuml
+title Chọn phương thức thanh toán - HV Travel
+
+actor "Khách hàng" as User
+boundary "Mobile App" as App
+control "PaymentController" as Controller
+entity "PaymentService" as Service
+database "Database" as DB
+
+User -> App : Chọn chức năng thanh toán
+App -> Controller : getPaymentMethods()
+Controller -> Service : getAvailableMethods()
+Service -> DB : SELECT payment_methods WHERE active = true
+DB --> Service : Danh sách phương thức / rỗng
+
+alt Có phương thức thanh toán
+    Service --> Controller : methods
+    Controller --> App : response(methods)
+    App --> User : Hiển thị phương thức thanh toán
+else Không có phương thức / lỗi hệ thống
+    Service --> Controller : error
+    Controller --> App : response(error)
+    App --> User : Thông báo không khả dụng
+end
+
+@enduml
