@@ -1,0 +1,26 @@
+@startuml
+title Xem chi tiết tour - HV Travel
+
+actor "Khách hàng" as User
+boundary "Mobile App" as App
+control "TourController" as Controller
+entity "TourService" as Service
+database "Database" as DB
+
+User -> App : Chọn tour
+App -> Controller : getTourDetail(tourId)
+Controller -> Service : getTourById(tourId)
+Service -> DB : SELECT tour WHERE id = tourId
+DB --> Service : Tour data / null
+
+alt Lấy dữ liệu thành công
+    Service --> Controller : tour
+    Controller --> App : response(tour)
+    App --> User : Hiển thị chi tiết tour
+else Tour không tồn tại / lỗi hệ thống
+    Service --> Controller : error
+    Controller --> App : response(error)
+    App --> User : Thông báo không thể tải tour
+end
+
+@enduml

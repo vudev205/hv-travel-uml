@@ -1,0 +1,32 @@
+@startuml
+title Thanh toán online - HV Travel
+
+actor "Khách hàng" as User
+boundary "Mobile App" as App
+control "PaymentController" as Controller
+entity "PaymentService" as Service
+participant "Cổng thanh toán\n(VNPay / Momo)" as Gateway
+database "Database" as DB
+
+User -> App : Xác nhận thanh toán
+App -> Controller : createPayment(orderInfo)
+Controller -> Service : createPayment(orderInfo)
+Service -> DB : INSERT payment (status = PENDING)
+DB --> Service : paymentId
+
+Service -> Gateway : requestPayment(paymentInfo)
+Gateway --> Service : paymentResult
+
+alt Thanh toán thành công
+    Service -> DB : UPDATE payment SET status = SUCCESS
+    Service --> Controller : success
+    Controller --> App : response(success)
+    App --> User : Hiển thị thanh toán thành công
+else Thanh toán thất bại / huỷ / timeout
+    Service -> DB : UPDATE payment SET status = FAILED
+    Service --> Controller : failed
+    Controller --> App : response(failed)
+    App --> User : Hiển thị thanh toán thất bại
+end
+
+@enduml

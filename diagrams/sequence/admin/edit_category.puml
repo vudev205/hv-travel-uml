@@ -1,0 +1,49 @@
+@startuml
+title Sửa danh mục - HV Travel
+
+actor Admin
+boundary "Admin UI" as UI
+control "CategoryController" as Controller
+entity "CategoryService" as Service
+database "Database" as DB
+
+Admin -> UI : Chọn chức năng sửa danh mục
+UI -> Controller : getCategoryList()
+Controller -> Service : getAllCategories()
+Service -> DB : SELECT * FROM categories
+DB --> Service : categoryList
+Service --> Controller : categoryList
+Controller --> UI : Hiển thị danh sách danh mục
+
+Admin -> UI : Chọn danh mục cần sửa
+UI -> Controller : getCategoryDetail(categoryId)
+Controller -> Service : getCategoryById(categoryId)
+Service -> DB : SELECT * FROM categories WHERE id
+DB --> Service : categoryDetail
+Service --> Controller : categoryDetail
+Controller --> UI : Hiển thị form sửa danh mục
+
+Admin -> UI : Nhập thông tin mới
+Admin -> UI : Nhấn "Sửa"
+UI -> Controller : updateCategory(data)
+Controller -> Service : updateCategory(data)
+
+Service -> DB : CHECK tên danh mục trùng
+DB --> Service : result
+
+alt Dữ liệu hợp lệ
+    Service -> DB : UPDATE categories
+    Service --> Controller : success
+    Controller --> UI : Thông báo sửa thành công
+    UI -> Controller : reloadCategoryList()
+    Controller -> Service : getAllCategories()
+    Service -> DB : SELECT * FROM categories
+    DB --> Service : categoryList
+    Service --> Controller : categoryList
+    Controller --> UI : Hiển thị danh mục đã cập nhật
+else Dữ liệu không hợp lệ
+    Service --> Controller : error(message)
+    Controller --> UI : Hiển thị lỗi (trùng tên, dữ liệu sai...)
+end
+
+@enduml
