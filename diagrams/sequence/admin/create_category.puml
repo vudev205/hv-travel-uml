@@ -1,0 +1,91 @@
+@startuml
+title Biểu đồ tuần tự - Thêm danh mục (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Category Controller/API" as API
+control "connectDB()" as DBConn
+entity "Category (Mongoose Model)" as CategoryModel
+database "MongoDB" as MongoDB
+
+== Mở form thêm danh mục ==
+Admin -> UI: Chọn chức năng "Thêm danh mục"
+UI -> API: GET /categories (lấy danh sách để chọn danh mục cha, quốc gia, ...)
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+activate CategoryModel
+CategoryModel -> MongoDB: Query categories
+activate MongoDB
+MongoDB --> CategoryModel: categories[]
+deactivate MongoDB
+CategoryModel --> API: categories[]
+deactivate CategoryModel
+
+API --> UI: 200 JSON {status:true, data:categories}
+deactivate API
+
+UI --> Admin: Hiển thị form "Thêm danh mục"\n+ dropdown danh mục cha (nếu có)
+
+== Nhập thông tin & nhấn Lưu ==
+Admin -> UI: Nhập tên danh mục (name)
+Admin -> UI: (Tuỳ chọn) chọn danh mục cha
+Admin -> UI: (Tuỳ chọn) chọn nước du lịch
+Admin -> UI: (Tuỳ chọn) viết ghi chú
+Admin -> UI: Nhấn "Lưu"
+
+UI -> API: POST /categories\n{ name, slug, position }
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: findOne({ slug })
+activate CategoryModel
+CategoryModel -> MongoDB: Query kiểm tra slug
+activate MongoDB
+MongoDB --> CategoryModel: exists / null
+deactivate MongoDB
+CategoryModel --> API: exists?
+deactivate CategoryModel
+
+alt Không thành công (Slug đã tồn tại)
+  API --> UI: 400 JSON\n{ status:false, message:"Slug đã tồn tại" }
+  UI --> Admin: Hiển thị thông báo lỗi\n(danh mục đã tồn tại/trùng tên,...)
+else Thành công
+  API -> CategoryModel: create({ name, slug, position })
+  activate CategoryModel
+  CategoryModel -> MongoDB: Insert category mới
+  activate MongoDB
+  MongoDB --> CategoryModel: category
+  deactivate MongoDB
+  CategoryModel --> API: category
+  deactivate CategoryModel
+
+  API --> UI: 200 JSON\n{ status:true, data:category }
+  UI --> Admin: Hiển thị thông báo thêm mới thành công
+  UI -> API: GET /categories (tải lại danh sách)
+  activate API
+  API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+  activate CategoryModel
+  CategoryModel -> MongoDB: Query categories
+  activate MongoDB
+  MongoDB --> CategoryModel: categories[]
+  deactivate MongoDB
+  CategoryModel --> API: categories[]
+  deactivate CategoryModel
+  API --> UI: 200 JSON {status:true, data:categories}
+  deactivate API
+
+  UI --> Admin: Hiển thị danh mục vừa tạo\nlên danh sách danh mục
+end
+
+deactivate API
+@enduml

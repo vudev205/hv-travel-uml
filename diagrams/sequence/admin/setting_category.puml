@@ -1,0 +1,138 @@
+@startuml
+title Biểu đồ tuần tự - Sửa danh mục (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Category Controller/API" as API
+control "connectDB()" as DBConn
+entity "Category (Mongoose Model)" as CategoryModel
+database "MongoDB" as MongoDB
+
+== Mở danh sách danh mục ==
+Admin -> UI: Chọn chức năng "Sửa danh mục"
+UI -> API: GET /categories (danh sách danh mục)
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+activate CategoryModel
+CategoryModel -> MongoDB: Query danh sách danh mục
+activate MongoDB
+MongoDB --> CategoryModel: categories[]
+deactivate MongoDB
+CategoryModel --> API: categories[]
+deactivate CategoryModel
+
+API --> UI: 200 JSON {status:true, data:categories}
+deactivate API
+
+UI --> Admin: Hiển thị form danh sách các danh mục
+
+== Chọn danh mục cần sửa & hiển thị form ==
+Admin -> UI: Chọn danh mục cần sửa (categoryId)
+UI -> API: GET /categories/{categoryId}
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: findById(categoryId).lean()
+activate CategoryModel
+CategoryModel -> MongoDB: Query category theo id
+activate MongoDB
+MongoDB --> CategoryModel: category / null
+deactivate MongoDB
+CategoryModel --> API: category|null
+deactivate CategoryModel
+
+alt Không tìm thấy danh mục
+  API --> UI: 404 + "Danh mục không tồn tại"
+  UI --> Admin: Hiển thị lỗi
+  deactivate API
+else Tìm thấy danh mục
+  API --> UI: 200 JSON {status:true, data:category}
+  UI --> Admin: Hiển thị thông tin form cần sửa
+  deactivate API
+end
+
+== Admin sửa thông tin & nhấn "Sửa" ==
+Admin -> UI: Nhập tên danh mục (name)
+Admin -> UI: (Tuỳ chọn) chọn danh mục cha
+Admin -> UI: Chọn nước du lịch
+Admin -> UI: (Tuỳ chọn) viết ghi chú
+Admin -> UI: Nhấn "Sửa"
+
+UI -> API: PUT /categories/{categoryId}\n{ name, slug, position, ... }
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: findOne({ slug, _id: { $ne: categoryId } })
+activate CategoryModel
+CategoryModel -> MongoDB: Kiểm tra trùng slug
+activate MongoDB
+MongoDB --> CategoryModel: exists / null
+deactivate MongoDB
+CategoryModel --> API: exists?
+deactivate CategoryModel
+
+alt Không thành công (Danh mục đã tồn tại / trùng tên / trùng slug)
+  API --> UI: 400/409 + Thông báo lỗi\n("Danh mục đã tồn tại", "Trùng slug",...)
+  UI --> Admin: Hiển thị thông báo lỗi\nvà giữ nguyên form sửa
+  UI -> API: GET /categories/{categoryId} (nạp lại form)
+  activate API
+  API -> CategoryModel: findById(categoryId).lean()
+  activate CategoryModel
+  CategoryModel -> MongoDB: Query category
+  activate MongoDB
+  MongoDB --> CategoryModel: category
+  deactivate MongoDB
+  CategoryModel --> API: category
+  deactivate CategoryModel
+  API --> UI: 200 JSON {status:true, data:category}
+  deactivate API
+else Thành công
+  API -> CategoryModel: findByIdAndUpdate(categoryId, {..payload..},\n{ new:true, runValidators:true })
+  activate CategoryModel
+  CategoryModel -> MongoDB: Update category trong CSDL
+  activate MongoDB
+  MongoDB --> CategoryModel: updatedCategory / null
+  deactivate MongoDB
+  CategoryModel --> API: updatedCategory|null
+  deactivate CategoryModel
+
+  alt Danh mục không tồn tại (bị xoá trước đó)
+    API --> UI: 404 + "Danh mục không tồn tại"
+    UI --> Admin: Hiển thị lỗi
+  else Sửa thành công
+    API --> UI: 200 + Thông báo\nsửa danh mục thành công
+    UI --> Admin: Hiển thị thông báo sửa thành công
+
+    UI -> API: GET /categories (tải lại danh sách)
+    activate API
+    API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+    activate CategoryModel
+    CategoryModel -> MongoDB: Query danh sách danh mục
+    activate MongoDB
+    MongoDB --> CategoryModel: categories[]
+    deactivate MongoDB
+    CategoryModel --> API: categories[]
+    deactivate CategoryModel
+    API --> UI: 200 JSON {status:true, data:categories}
+    deactivate API
+
+    UI --> Admin: Hiển thị danh mục vừa sửa\ntrong danh sách danh mục
+  end
+end
+
+deactivate API
+@enduml

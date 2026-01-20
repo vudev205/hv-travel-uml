@@ -1,0 +1,105 @@
+@startuml
+title Biểu đồ tuần tự - Xóa tour (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Tour Controller/API" as API
+control "connectDB()" as DBConn
+entity "Tour (Mongoose Model)" as TourModel
+database "MongoDB" as MongoDB
+
+== Mở màn hình xóa tour ==
+Admin -> UI: Chọn chức năng "Xóa tour"
+UI -> API: GET /admin/tours/delete
+activate API
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> TourModel: find(...).select(...).lean()
+activate TourModel
+TourModel -> MongoDB: Query danh sách tours
+activate MongoDB
+MongoDB --> TourModel: tours[]
+deactivate MongoDB
+TourModel --> API: tours[]
+deactivate TourModel
+
+API --> UI: Hiển thị form\ncác tour muốn xóa
+deactivate API
+
+== Tìm kiếm tour cần xóa ==
+Admin -> UI: Nhập tên tour muốn xóa (keyword)
+UI -> API: GET /admin/tours/delete?search=keyword
+activate API
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> TourModel: find({ name: /keyword/i }).lean()
+activate TourModel
+TourModel -> MongoDB: Query theo từ khóa
+activate MongoDB
+MongoDB --> TourModel: toursFiltered[]
+deactivate MongoDB
+TourModel --> API: toursFiltered[]
+deactivate TourModel
+
+API --> UI: Cập nhật danh sách tour phù hợp
+deactivate API
+
+== Thực hiện xóa ==
+Admin -> UI: Chọn tour muốn xóa (tourId)
+Admin -> UI: Nhấn "Xóa"
+
+UI -> API: DELETE /admin/tours/{tourId}
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> TourModel: findById(tourId)
+activate TourModel
+TourModel -> MongoDB: Query theo id
+activate MongoDB
+MongoDB --> TourModel: tour / null
+deactivate MongoDB
+TourModel --> API: tour|null
+deactivate TourModel
+
+alt Thất bại (Tour không tồn tại / lỗi ràng buộc)
+  API --> UI: 404/400 + Thông báo lỗi
+  UI --> Admin: Hiển thị "Thông báo lỗi"
+else Thành công
+  API -> TourModel: findByIdAndDelete(tourId)
+  activate TourModel
+  TourModel -> MongoDB: Delete tour
+  activate MongoDB
+  MongoDB --> TourModel: deletedTour
+  deactivate MongoDB
+  TourModel --> API: deletedTour
+  deactivate TourModel
+
+  API --> UI: 200 + Thông báo xóa thành công
+  UI --> Admin: Hiển thị thông báo xóa thành công
+
+  UI -> API: GET /admin/tours/delete (quay lại form danh sách)
+  activate API
+  API -> TourModel: find(...).select(...).lean()
+  activate TourModel
+  TourModel -> MongoDB: Query danh sách tours
+  activate MongoDB
+  MongoDB --> TourModel: tours[]
+  deactivate MongoDB
+  TourModel --> API: tours[]
+  deactivate TourModel
+  API --> UI: Hiển thị lại form\ncác tour muốn xóa
+  deactivate API
+end
+
+deactivate API
+@enduml

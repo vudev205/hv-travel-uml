@@ -1,0 +1,108 @@
+@startuml
+title Biểu đồ tuần tự - Xóa danh mục (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Category Controller/API" as API
+control "connectDB()" as DBConn
+entity "Category (Mongoose Model)" as CategoryModel
+database "MongoDB" as MongoDB
+
+== Mở màn hình xóa danh mục ==
+Admin -> UI: Chọn chức năng "Xóa danh mục"
+UI -> API: GET /categories/delete
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+activate CategoryModel
+CategoryModel -> MongoDB: Query danh sách danh mục
+activate MongoDB
+MongoDB --> CategoryModel: categories[]
+deactivate MongoDB
+CategoryModel --> API: categories[]
+deactivate CategoryModel
+
+API --> UI: Hiển thị form\ncác danh mục muốn xóa
+deactivate API
+
+== Tìm kiếm danh mục cần xóa ==
+Admin -> UI: Nhập tên danh mục muốn xóa (keyword)
+UI -> API: GET /categories/delete?search=keyword
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: find({ name: /keyword/i,\n  deleted:false, status:"active" }).lean()
+activate CategoryModel
+CategoryModel -> MongoDB: Query theo từ khóa
+activate MongoDB
+MongoDB --> CategoryModel: categoriesFiltered[]
+deactivate MongoDB
+CategoryModel --> API: categoriesFiltered[]
+deactivate CategoryModel
+
+API --> UI: Cập nhật danh sách danh mục phù hợp
+deactivate API
+
+== Thực hiện xóa ==
+Admin -> UI: Chọn danh mục muốn xóa (categoryId)
+Admin -> UI: Nhấn "Xóa"
+
+UI -> API: DELETE /categories/{categoryId}
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> CategoryModel: findById(categoryId)
+activate CategoryModel
+CategoryModel -> MongoDB: Query theo id
+activate MongoDB
+MongoDB --> CategoryModel: category / null
+deactivate MongoDB
+CategoryModel --> API: category|null
+deactivate CategoryModel
+
+alt Thất bại (Danh mục không tồn tại / lỗi ràng buộc)
+  API --> UI: 404/400 + Thông báo lỗi
+  UI --> Admin: Hiển thị "Thông báo lỗi"
+else Thành công
+  API -> CategoryModel: findByIdAndUpdate(categoryId,\n{ deleted:true },\n{ new:true })
+  activate CategoryModel
+  CategoryModel -> MongoDB: Update deleted=true (xoá mềm)
+  activate MongoDB
+  MongoDB --> CategoryModel: updatedCategory
+  deactivate MongoDB
+  CategoryModel --> API: updatedCategory
+  deactivate CategoryModel
+
+  API --> UI: 200 + Thông báo xóa thành công
+  UI --> Admin: Hiển thị thông báo xóa thành công
+
+  UI -> API: GET /categories/delete (quay lại form danh sách)
+  activate API
+  API -> CategoryModel: find({deleted:false, status:"active"})\n.sort({position:1}).lean()
+  activate CategoryModel
+  CategoryModel -> MongoDB: Query danh sách danh mục
+  activate MongoDB
+  MongoDB --> CategoryModel: categories[]
+  deactivate MongoDB
+  CategoryModel --> API: categories[]
+  deactivate CategoryModel
+  API --> UI: Hiển thị lại form\ncác danh mục muốn xóa
+  deactivate API
+end
+
+deactivate API
+@enduml
+

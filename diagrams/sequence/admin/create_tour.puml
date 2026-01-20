@@ -1,0 +1,69 @@
+@startuml
+title Biểu đồ tuần tự - Thêm tour (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Tour Controller/API" as API
+control "connectDB()" as DBConn
+entity "Tour (Mongoose Model)" as TourModel
+database "MongoDB" as MongoDB
+
+== Mở form thêm tour ==
+Admin -> UI: Chọn chức năng "Thêm tour"
+UI -> API: GET /admin/tours/create
+activate API
+API --> UI: Trả về form Thêm tour
+deactivate API
+
+== Nhập thông tin & lưu ==
+Admin -> UI: Nhập thông tin tour\n(name, category, price, quantity, time, itinerary,...)
+Admin -> UI: Nhấn "Lưu"
+
+UI -> API: POST /admin/tours\n(payload tour)
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> TourModel: findOne({ name })
+activate TourModel
+TourModel -> MongoDB: Query kiểm tra trùng
+activate MongoDB
+MongoDB --> TourModel: Kết quả
+deactivate MongoDB
+TourModel --> API: Tour? (có/không)
+deactivate TourModel
+
+alt Tour đã tồn tại / dữ liệu không hợp lệ
+  API --> UI: 400/409 + Thông báo lỗi\n("Tour đã tồn tại", "Thiếu dữ liệu",...)
+  UI --> Admin: Hiển thị thông báo lỗi
+else Thành công
+  API -> TourModel: create(payload tour)
+  activate TourModel
+  TourModel -> MongoDB: Insert tour mới
+  activate MongoDB
+  MongoDB --> TourModel: InsertedId
+  deactivate MongoDB
+  TourModel --> API: Tour mới
+  deactivate TourModel
+
+  API --> UI: 201 + Thông báo tạo mới tour thành công
+  UI --> Admin: Hiển thị thông báo thành công
+  UI -> API: GET /admin/tours (tải lại danh sách)
+  activate API
+  API -> TourModel: find(...) (lấy danh sách tours)
+  activate TourModel
+  TourModel -> MongoDB: Query
+  activate MongoDB
+  MongoDB --> TourModel: data
+  deactivate MongoDB
+  TourModel --> API: data
+  deactivate TourModel
+  API --> UI: Render/JSON danh sách tours
+  deactivate API
+end
+
+deactivate API
+@enduml

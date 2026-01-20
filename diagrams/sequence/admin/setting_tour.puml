@@ -1,0 +1,112 @@
+@startuml
+title Biểu đồ tuần tự - Sửa tour (HV-Travel)
+
+actor Admin
+boundary "Admin UI" as UI
+control "Tour Controller/API" as API
+control "connectDB()" as DBConn
+entity "Tour (Mongoose Model)" as TourModel
+database "MongoDB" as MongoDB
+
+== Mở danh sách & form sửa ==
+Admin -> UI: Chọn chức năng "Sửa tour"
+UI -> API: GET /admin/tours
+activate API
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+API -> TourModel: find(...).select(...).lean()
+activate TourModel
+TourModel -> MongoDB: Query danh sách tours
+activate MongoDB
+MongoDB --> TourModel: tours[]
+deactivate MongoDB
+TourModel --> API: tours[]
+deactivate TourModel
+API --> UI: Trả về danh sách tours
+deactivate API
+
+Admin -> UI: Chọn tour cần sửa (tourId)
+
+UI -> API: GET /admin/tours/{tourId}/edit
+activate API
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+API -> TourModel: findById(tourId).lean()
+activate TourModel
+TourModel -> MongoDB: Query tour theo id
+activate MongoDB
+MongoDB --> TourModel: tour / null
+deactivate MongoDB
+TourModel --> API: tour|null
+deactivate TourModel
+
+alt Không tìm thấy tour
+  API --> UI: 404 + "Tour không tồn tại"
+  UI --> Admin: Hiển thị lỗi
+  deactivate API
+else Tìm thấy tour
+  API --> UI: Trả về dữ liệu tour để edit
+  deactivate API
+end
+
+== Cập nhật tour ==
+Admin -> UI: Sửa thông tin tour\n(name, category, price, quantity, time, itinerary,...)
+Admin -> UI: Nhấn "Sửa"
+
+UI -> API: PUT /admin/tours/{tourId}\n(payload cập nhật)
+activate API
+
+API -> DBConn: connectDB()
+activate DBConn
+DBConn --> API: OK
+deactivate DBConn
+
+API -> TourModel: findOne({ name, _id: { $ne: tourId } })
+activate TourModel
+TourModel -> MongoDB: Query kiểm tra trùng tên
+activate MongoDB
+MongoDB --> TourModel: tour? (có/không)
+deactivate MongoDB
+TourModel --> API: duplicateTour?
+deactivate TourModel
+
+alt Trùng tour / dữ liệu không hợp lệ
+  API --> UI: 400/409 + Thông báo lỗi\n("Tour đã tồn tại", "Thiếu dữ liệu",...)
+  UI --> Admin: Hiển thị thông báo lỗi\nvà giữ nguyên form sửa
+else Hợp lệ
+  API -> TourModel: findByIdAndUpdate(tourId, payload,\n{ new:true, runValidators:true })
+  activate TourModel
+  TourModel -> MongoDB: Update bản ghi tour
+  activate MongoDB
+  MongoDB --> TourModel: updatedTour / null
+  deactivate MongoDB
+  TourModel --> API: updatedTour|null
+  deactivate TourModel
+
+  alt Tour không tồn tại (bị xoá trước đó)
+    API --> UI: 404 + "Tour không tồn tại"
+    UI --> Admin: Hiển thị lỗi
+  else Thành công
+    API --> UI: 200 + Thông báo sửa tour thành công
+    UI --> Admin: Hiển thị thông báo thành công
+    UI -> API: GET /admin/tours (tải lại danh sách)
+    activate API
+    API -> TourModel: find(...).select(...).lean()
+    activate TourModel
+    TourModel -> MongoDB: Query danh sách tours
+    activate MongoDB
+    MongoDB --> TourModel: tours[]
+    deactivate MongoDB
+    TourModel --> API: tours[]
+    deactivate TourModel
+    API --> UI: Render/JSON danh sách tours
+    deactivate API
+  end
+end
+
+deactivate API
+@enduml
