@@ -1,0 +1,26 @@
+@startuml
+title Xem danh sách tour - HV Travel
+
+actor "Khách hàng" as User
+boundary "UI (Web/App)" as UI
+control "TourController" as Controller
+entity "TourService" as Service
+database "Database" as DB
+
+User -> UI : Chọn chức năng xem danh sách tour
+UI -> Controller : requestGetTours()
+Controller -> Service : getAllTours()
+Service -> DB : SELECT tours
+DB --> Service : Danh sách tour
+
+alt Lấy dữ liệu thành công
+    Service --> Controller : tours
+    Controller --> UI : response(tours)
+    UI --> User : Hiển thị danh sách tour
+else Lỗi hệ thống / không có dữ liệu
+    Service --> Controller : error
+    Controller --> UI : response(error)
+    UI --> User : Thông báo lỗi
+end
+
+@enduml
